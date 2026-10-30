@@ -30,16 +30,39 @@ namespace triqs_ctint::measures {
       auto &det     = qmc_config.dets[bl];
       auto &density = density_[bl];
       int bl_size   = density.shape()[0];
+      long N        = det.size();
+
+      // density(a, b) is the ratio det.try_insert(0, 0, c_b, cdag_a) would give,
+      //   D(b, a) = f(c_b, cdag_a) - sum_{n,l} f(c_b, y_n) M^-1(n, l) f(x_l, cdag_a),
+      // for all (a, b) at once, as two matrix products instead of bl_size^2 matrix-vector products
+      using value_t = det_t::value_type;
+      auto const &f = det.get_function();
+      auto const &x = det.get_x_internal_order();
+      auto const &y = det.get_y_internal_order();
+
+      std::vector<c_t> c;
+      std::vector<cdag_t> cdag;
+      for (int a : range(bl_size)) {
+        c.push_back(c_t{tau_t::get_zero(), a});
+        cdag.push_back(cdag_t{tau_t::get_zero_plus(), a});
+      }
+
+      matrix<value_t> D(bl_size, bl_size);
+      for (int b : range(bl_size))
+        for (int a : range(bl_size)) D(b, a) = f(c[b], cdag[a]);
+
+      if (N > 0) {
+        matrix<value_t> X(bl_size, N), Y(N, bl_size), MY(N, bl_size);
+        for (int b : range(bl_size))
+          for (long n : range(N)) X(b, n) = f(c[b], y[n]);
+        for (long l : range(N))
+          for (int a : range(bl_size)) Y(l, a) = f(x[l], cdag[a]);
+        nda::blas::gemm(1.0, det.inverse_matrix_internal_order(), Y, 0.0, MY);
+        nda::blas::gemm(-1.0, X, MY, 1.0, D);
+      }
 
       for (int a : range(bl_size))
-        for (int b : range(bl_size)) {
-
-          cdag_t cdag_a{tau_t::get_zero_plus(), a};
-          c_t c_b{tau_t::get_zero(), b};
-
-          density(a, b) += sign * det.try_insert(0, 0, c_b, cdag_a);
-          det.reject_last_try();
-        }
+        for (int b : range(bl_size)) density(a, b) += sign * D(b, a);
     }
   }
 
