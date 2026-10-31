@@ -8,6 +8,7 @@
 #include "./moves/insert.hpp"
 #include "./moves/remove.hpp"
 #include "./moves/spinflip.hpp"
+#include "./moves/submatrix.hpp"
 #include "./post_process.hpp"
 #include "./qmc_config.hpp"
 #include "./vertex_factories.hpp"
@@ -97,8 +98,15 @@ namespace triqs_ctint {
     std::ignore = std::unique(params.insertion_types.begin(), params.insertion_types.end());
 
     for (auto &&num_insert : params.insertion_types) {
+      if (num_insert == 1 and params.use_submatrix) continue; // done by the submatrix batches below
       mc.add_move(moves::insert{&qmc_config, vertex_factories, rng, num_insert, params.max_order}, "insert " + std::to_string(num_insert));
       mc.add_move(moves::remove{&qmc_config, vertex_factories, rng, num_insert, params.max_order}, "remove " + std::to_string(num_insert));
+    }
+    if (params.use_submatrix) {
+      TRIQS_ASSERT2(params.submatrix_size > 0, "ERROR: submatrix_size must be positive.");
+      // weight 2 / submatrix_size: as many single insertions and removals per weight as the two moves it replaces
+      mc.add_move(moves::submatrix{&qmc_config, vertex_factories, rng, params.submatrix_size, params.max_order}, "submatrix",
+                  2.0 / params.submatrix_size);
     }
     if (params.use_auxiliary_spin_flip) {
       TRIQS_ASSERT2(params.n_s == 2, "ERROR: Auxiliary spin-flip move requires n_s = 2.");

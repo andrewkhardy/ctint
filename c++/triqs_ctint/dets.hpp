@@ -6,6 +6,7 @@
 #pragma once
 
 #include <ostream>
+#include "./submatrix_det.hpp"
 
 namespace triqs_ctint {
 
@@ -78,7 +79,7 @@ namespace triqs_ctint {
     }
   };
 
-  /// Type of a single determinant
-  using det_t = det_manip<G0hat_t>;
+  /// Type of a single determinant: a det_manip that can also do batches of submatrix updates (use_submatrix)
+  using det_t = submatrix_det<G0hat_t>;
 
 } // namespace triqs_ctint

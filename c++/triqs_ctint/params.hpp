@@ -90,6 +90,14 @@ namespace triqs_ctint {
     /// Types of insertions to use.
     std::vector<int> insertion_types = {};
 
+    /// Replace the single insertions and removals by batches of them with submatrix updates of the determinants (for
+    /// density-density vertices with their two pairs in two different blocks, as U n_up n_dn). One batch counts as one
+    /// move of the cycle; it is proposed with weight 2 / submatrix_size against 1 for each other move.
+    bool use_submatrix = false;
+
+    /// Number of insertion and removal steps in one submatrix batch.
+    int submatrix_size = 32;
+
     /// Use auxiliary spin-flip insertion (requires \f$ n_s = 2 \f$)?
     bool use_auxiliary_spin_flip = false;
 
