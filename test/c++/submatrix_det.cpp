@@ -14,11 +14,13 @@
 #include <random>
 #include <vector>
 
+double g_beta = 10.0; // the period of fun, set by each test
+
 struct fun {
   // a G0-like kernel of x - y on [0, beta), antiperiodic, plus a narrow peak at x = y that plays the alpha shift's
   // part in CTINT: the pairs (x, y = x + small) dominate their rows, so the matrices are well conditioned
   double operator()(double x, double y) const {
-    const double beta = 10.0, eps = 0.3;
+    const double beta = g_beta, eps = 0.3;
     double tau = x - y;
     double s   = 1;
     if (tau < 0) {
@@ -72,17 +74,17 @@ void expect_same(ref_t &ref, sub_t &sub) {
   EXPECT_NEAR(ds / dr, 1.0, 1e-8);
 }
 
-TEST(SubmatrixDet, AgainstDetManip) {
-  const double beta = 10.0;
-  for (int seed : {1, 2, 3, 4, 5}) {
+// n0 random pairs inserted (then a third of them removed), then n_batches batches of up to max_steps steps
+void run(int seed, int n0, int n_batches, int max_steps, double beta, long init_size) {
+  g_beta = beta;
+  {
     std::mt19937 rng(seed);
     std::uniform_real_distribution<double> U(0, 1);
-    ref_t ref(fun{}, 10);
-    sub_t sub(fun{}, 10);
+    ref_t ref(fun{}, init_size);
+    sub_t sub(fun{}, init_size);
 
     // The pairs (x, y) currently in the matrices
     std::vector<std::pair<double, double>> pairs;
-    int n0 = 5 + 10 * seed;
     for (int k = 0; k < n0; ++k) {
       double x = beta * U(rng), y = x + 0.01 * (U(rng) - 0.5);
       insert_both(ref, sub, x, y);
@@ -96,8 +98,8 @@ TEST(SubmatrixDet, AgainstDetManip) {
     }
     expect_same(ref, sub);
 
-    for (int batch = 0; batch < 4; ++batch) {
-      int n_steps = 1 + int(U(rng) * 24);
+    for (int batch = 0; batch < n_batches; ++batch) {
+      int n_steps = 1 + int(U(rng) * max_steps);
       std::vector<int> is_insert(n_steps);
       int n_ins = 0;
       for (auto &b : is_insert) n_ins += (b = (U(rng) < 0.5));
@@ -161,5 +163,17 @@ TEST(SubmatrixDet, AgainstDetManip) {
     }
   }
 }
+
+TEST(SubmatrixDet, AgainstDetManip) {
+  for (int seed : {1, 2, 3, 4, 5}) run(seed, 5 + 10 * seed, 4, 24, 10.0, 10);
+}
+
+// From an empty matrix, as every solve starts
+TEST(SubmatrixDet, FromEmpty) {
+  for (int seed : {11, 12, 13}) run(seed, 0, 8, 24, 10.0, 1000);
+}
+
+// At the orders of the production runs, with the capacity CTINT gives the dets (det_init_size 1000)
+TEST(SubmatrixDet, LargeOrder) { run(7, 900, 6, 64, 200.0, 1000); }
 
 MAKE_MAIN;

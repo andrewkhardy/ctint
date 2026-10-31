@@ -166,8 +166,10 @@ namespace triqs_ctint {
       }
       // The batch inverse G_b^-1 = [[A^-1, W], [0, 1]] in mat_inv(0:NB, 0:NB)
       if (K > 0) {
-        mat_inv(range(N0), range(N0, NB))     = W;
-        mat_inv(range(N0, NB), range(N0))     = 0;
+        if (N0 > 0) { // (nda's fill of a strided view with an empty dimension runs off the end: never make one)
+          mat_inv(range(N0), range(N0, NB)) = W;
+          mat_inv(range(N0, NB), range(N0)) = 0;
+        }
         mat_inv(range(N0, NB), range(N0, NB)) = 0;
         for (long p = 0; p < K; ++p) mat_inv(N0 + p, N0 + p) = 1;
       }
@@ -187,8 +189,10 @@ namespace triqs_ctint {
         long nc = long(cand.size());
         matrix_type Rc(nc, N0), RG(nc, NB);
         RG() = 0;
-        for (long a = 0; a < nc; ++a) Rc(a, range(N0)) = R(S[cand[a]].i - N0, range(N0));
-        if (N0 > 0) nda::blas::gemm(1.0, Rc, mat_inv(range(N0), range(NB)), 0.0, RG);
+        if (N0 > 0) {
+          for (long a = 0; a < nc; ++a) Rc(a, range(N0)) = R(S[cand[a]].i - N0, range(N0));
+          nda::blas::gemm(1.0, Rc, mat_inv(range(N0), range(NB)), 0.0, RG);
+        }
         for (long a = 0; a < nc; ++a) {
           auto const &e = S[cand[a]];
           RG(a, range(N0, NB)) += R(e.i - N0, range(N0, NB));
